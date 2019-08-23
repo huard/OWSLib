@@ -99,8 +99,11 @@ class ServiceProvider(object):
         self.contact = ServiceContact(infoset, namespace)
         val = self._root.find(util.nspath('ProviderSite', namespace))
         if val is not None:
-            urlattrib = val.attrib[util.nspath('href', XLINK_NAMESPACE)]
-            self.url = util.testXMLValue(urlattrib, True)
+            try:
+                urlattrib = val.attrib[util.nspath('href', XLINK_NAMESPACE)]
+                self.url = util.testXMLValue(urlattrib, True)
+            except KeyError:
+                self.url = None
         else:
             self.url = None
 
@@ -238,10 +241,12 @@ class BoundingBox(object):
         self.maxy = None
 
         val = elem.attrib.get('crs') or elem.attrib.get('{{{}}}crs'.format(namespace))
-        try:
-            self.crs = crs.Crs(val)
-        except (AttributeError, ValueError):
-            LOGGER.warning('Invalid CRS %r. Expected integer')
+        if val:
+            try:
+                self.crs = crs.Crs(val)
+            except (AttributeError, ValueError):
+                LOGGER.warning('Invalid CRS %r. Expected integer' % val)
+        else:
             self.crs = None
 
         val = elem.attrib.get('dimensions') or elem.attrib.get('{{{}}}dimensions'.format(namespace))
