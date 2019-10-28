@@ -127,7 +127,8 @@ class WebMapTileService(object):
             raise KeyError("No content named %s" % name)
 
     def __init__(self, url, version='1.0.0', xml=None, username=None, password=None,
-                 parse_remote_metadata=False, vendor_kwargs=None, auth=None):
+                 parse_remote_metadata=False, vendor_kwargs=None, headers=None, auth=None,
+                 timeout=30):
         """Initialize.
 
         Parameters
@@ -150,6 +151,8 @@ class WebMapTileService(object):
             requests.
         auth : owslib.util.Authentication
             Instance of Authentication class to hold username/password/cert/verify
+        timeout : int
+            number of seconds for GetTile request
 
         """
         self.url = clean_ows_url(url)
@@ -161,11 +164,13 @@ class WebMapTileService(object):
         self.version = version
         self.vendor_kwargs = vendor_kwargs
         self._capabilities = None
+        self.headers = headers
         self.auth = auth or Authentication(username, password)
+        self.timeout = timeout or 30
 
         # Authentication handled by Reader
         reader = WMTSCapabilitiesReader(
-            self.version, url=self.url, auth=self.auth)
+            self.version, url=self.url, headers=self.headers, auth=self.auth)
         if xml:  # read from stored xml
             self._capabilities = reader.readString(xml)
         else:  # read from server
@@ -186,7 +191,7 @@ class WebMapTileService(object):
         # TODO: deprecated function. See ticket #453.
         if not self._capabilities:
             reader = WMTSCapabilitiesReader(
-                self.version, url=self.url, auth=self.auth)
+                self.version, url=self.url, headers=self.headers, auth=self.auth)
             # xml = reader.read(self.url, self.vendor_kwargs)
             # self._capabilities = ServiceMetadata(xml)
             self._capabilities = reader.read(self.url, self.vendor_kwargs)
@@ -199,7 +204,8 @@ class WebMapTileService(object):
 
         # serviceIdentification metadata
         serviceident = self._capabilities.find(_SERVICE_IDENTIFICATION_TAG)
-        self.identification = ServiceIdentification(serviceident)
+        if serviceident is not None:
+            self.identification = ServiceIdentification(serviceident)
 
         # serviceProvider metadata
         serviceprov = self._capabilities.find(_SERVICE_PROVIDER_TAG)
@@ -291,19 +297,6 @@ class WebMapTileService(object):
             Column index of tile to request.
         **kwargs : extra arguments
             anything else e.g. vendor specific parameters
-
-        Example
-        -------
-            >>> url = 'http://map1c.vis.earthdata.nasa.gov/wmts-geo/wmts.cgi'
-            >>> wmts = WebMapTileService(url)
-            >>> wmts.buildTileRequest(layer='VIIRS_CityLights_2012',
-            ...                       tilematrixset='EPSG4326_500m',
-            ...                       tilematrix='6',
-            ...                       row=4, column=4)
-            'SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&\
-LAYER=VIIRS_CityLights_2012&STYLE=default&TILEMATRIXSET=EPSG4326_500m&\
-TILEMATRIX=6&TILEROW=4&TILECOL=4&FORMAT=image%2Fjpeg'
-
         """
 
         if (layer is None):
@@ -344,6 +337,21 @@ TILEMATRIX=6&TILEROW=4&TILECOL=4&FORMAT=image%2Fjpeg'
                           tilematrixset=None, tilematrix=None, row=None,
                           column=None, **kwargs):
 
+        # check the validity of the parameters and set reasonable defaults
+        if layer is None:
+            raise ValueError("layer is mandatory (cannot be None)")
+        if style is None:
+            style = list(self[layer].styles.keys())[0]
+        if tilematrixset is None:
+            tilematrixset = sorted(self[layer].tilematrixsetlinks.keys())[0]
+        if tilematrix is None:
+            msg = 'tilematrix (zoom level) is mandatory (cannot be None)'
+            raise ValueError(msg)
+        if row is None:
+            raise ValueError("row is mandatory (cannot be None)")
+        if column is None:
+            raise ValueError("column is mandatory (cannot be None)")
+
         tileresourceurls = []
         for resourceURL in self[layer].resourceURLs:
             if resourceURL['resourceType'] == 'tile':
@@ -353,13 +361,11 @@ TILEMATRIX=6&TILEROW=4&TILECOL=4&FORMAT=image%2Fjpeg'
             # choose random ResourceURL if more than one available
             resindex = randint(0, numres - 1)
             resurl = tileresourceurls[resindex]['template']
-            if tilematrixset:
-                resurl = resurl.replace('{TileMatrixSet}', tilematrixset)
+            resurl = resurl.replace('{TileMatrixSet}', tilematrixset)
             resurl = resurl.replace('{TileMatrix}', tilematrix)
-            resurl = resurl.replace('{TileRow}', row)
-            resurl = resurl.replace('{TileCol}', column)
-            if style:
-                resurl = resurl.replace('{Style}', style)
+            resurl = resurl.replace('{TileRow}', str(row))
+            resurl = resurl.replace('{TileCol}', str(column))
+            resurl = resurl.replace('{Style}', style)
             return resurl
 
         return None
@@ -426,19 +432,6 @@ TILEMATRIX=6&TILEROW=4&TILECOL=4&FORMAT=image%2Fjpeg'
             Column index of tile to request.
         **kwargs : extra arguments
             anything else e.g. vendor specific parameters
-
-        Example
-        -------
-            >>> url = 'http://map1c.vis.earthdata.nasa.gov/wmts-geo/wmts.cgi'
-            >>> wmts = WebMapTileService(url)
-            >>> img = wmts.gettile(layer='VIIRS_CityLights_2012',\
-                                   tilematrixset='EPSG4326_500m',\
-                                   tilematrix='6',\
-                                   row=4, column=4)
-            >>> out = open('tile.jpg', 'wb')
-            >>> bytes_written = out.write(img.read())
-            >>> out.close()
-
         """
         vendor_kwargs = self.vendor_kwargs or {}
         vendor_kwargs.update(kwargs)
@@ -448,7 +441,7 @@ TILEMATRIX=6&TILEROW=4&TILECOL=4&FORMAT=image%2Fjpeg'
             resurl = self.buildTileResource(
                 layer, style, format, tilematrixset, tilematrix,
                 row, column, **vendor_kwargs)
-            u = openURL(resurl, auth=self.auth)
+            u = openURL(resurl, headers=self.headers, auth=self.auth, timeout=self.timeout)
             return u
 
         # KVP implemetation
@@ -474,7 +467,7 @@ TILEMATRIX=6&TILEROW=4&TILECOL=4&FORMAT=image%2Fjpeg'
                     base_url = get_verbs[0].get('url')
             except StopIteration:
                 pass
-        u = openURL(base_url, data, auth=self.auth)
+        u = openURL(base_url, data, headers=self.headers, auth=self.auth, timeout=self.timeout)
 
         # check for service exceptions, and return
         if u.info()['Content-Type'] == 'application/vnd.ogc.se_xml':
@@ -787,7 +780,7 @@ class WMTSCapabilitiesReader:
     """Read and parse capabilities document into a lxml.etree infoset
     """
 
-    def __init__(self, version='1.0.0', url=None, un=None, pw=None, auth=None):
+    def __init__(self, version='1.0.0', url=None, un=None, pw=None, headers=None, auth=None):
         """Initialize"""
         self.version = version
         self._infoset = None
@@ -798,6 +791,7 @@ class WMTSCapabilitiesReader:
             if pw:
                 auth.password = pw
         self.auth = auth or Authentication(un, pw)
+        self.headers = headers
 
     def capabilities_url(self, service_url, vendor_kwargs=None):
         """Return a capabilities url
@@ -832,7 +826,7 @@ class WMTSCapabilitiesReader:
 
         # now split it up again to use the generic openURL function...
         spliturl = getcaprequest.split('?')
-        u = openURL(spliturl[0], spliturl[1], method='Get', auth=self.auth)
+        u = openURL(spliturl[0], spliturl[1], method='Get', headers=self.headers, auth=self.auth)
         return etree.fromstring(u.read())
 
     def readString(self, st):
