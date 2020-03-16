@@ -15,12 +15,11 @@ from datetime import datetime, timedelta
 import pytz
 from owslib.etree import etree, ParseError
 from owslib.namespaces import Namespaces
-from urllib.parse import urlsplit, urlencode, urlparse, parse_qs, urlunparse
+from urllib.parse import urlsplit, urlencode, urlparse, parse_qs, urlunparse, parse_qsl
 import copy
 
 from io import StringIO, BytesIO
 
-import cgi
 import re
 from copy import deepcopy
 import warnings
@@ -558,7 +557,7 @@ def build_get_url(base_url, params, overwrite=False):
 
     qs_base = []
     if base_url.find('?') != -1:
-        qs_base = cgi.parse_qsl(base_url.split('?')[1])
+        qs_base = parse_qsl(base_url.split('?')[1])
 
     qs_params = []
     for key, value in list(params.items()):
@@ -785,6 +784,46 @@ def datetime_from_ansi(ansi):
     datumOrigin = datetime(1600, 12, 31, 0, 0, 0)
 
     return datumOrigin + timedelta(ansi)
+
+
+def is_number(s):
+    """simple helper to test if value is number as requests with numbers don't
+    need quote marks
+    """
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+
+def makeString(value):
+    # using repr unconditionally breaks things in some circumstances if a
+    # value is already a string
+    if type(value) is not str:
+        sval = repr(value)
+    else:
+        sval = value
+    return sval
+
+
+def param_list_to_url_string(param_list, param_name):
+    """Converts list of tuples for certain WCS GetCoverage keyword arguments
+    (subsets, resolutions, sizes) to a url-encoded string
+    """
+    string = ''
+    for param in param_list:
+        if len(param) > 2:
+            if not is_number(param[1]):
+                string += "&" + urlencode({param_name: param[0] + '("' + makeString(param[1]) + '","' + makeString(param[2]) + '")'})  # noqa
+            else:
+                string += "&" + urlencode({param_name: param[0] + "(" + makeString(param[1]) + "," + makeString(param[2]) + ")"})  # noqa
+        else:
+            if not is_number(param[1]):
+                string += "&" + urlencode({param_name: param[0] + '("' + makeString(param[1]) + '")'})  # noqa
+            else:
+                string += "&" + urlencode({param_name: param[0] + "(" + makeString(param[1]) + ")"})  # noqa
+    return string
 
 
 def is_vector_grid(grid_elem):

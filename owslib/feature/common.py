@@ -1,20 +1,7 @@
-import cgi
-from io import StringIO
 from owslib.etree import etree
 from owslib.util import Authentication, openURL
 
-from urllib.parse import urlencode
-
-
-def makeStringIO(strval):
-    """
-    Helper method to make sure the StringIO being returned will work.
-
-    Differences between Python 2.7/3.x mean we have a lot of cases to handle.
-
-    TODO: skipped Python 2.x support. Is this still necessary?
-    """
-    return StringIO(strval.decode())
+from urllib.parse import urlencode, parse_qsl
 
 
 class WFSCapabilitiesReader(object):
@@ -38,7 +25,7 @@ class WFSCapabilitiesReader(object):
         """
         qs = []
         if service_url.find("?") != -1:
-            qs = cgi.parse_qsl(service_url.split("?")[1])
+            qs = parse_qsl(service_url.split("?")[1])
 
         params = [x[0] for x in qs]
 

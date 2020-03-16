@@ -32,11 +32,11 @@ Standards Support
 +-----------------------+-----------------------------+
 | Standard              | Version(s)                  |
 +=======================+=============================+
-| `OGC WMS`_            | 1.1.1                       |
+| `OGC WMS`_            | 1.1.1, 1.3.0                |
 +-----------------------+-----------------------------+
 | `OGC WFS`_            | 1.0.0, 1.1.0, 2.0.0, 3.0    |
 +-----------------------+-----------------------------+
-| `OGC WCS`_            | 1.0.0, 1.1.0                |
+| `OGC WCS`_            | 1.0.0, 1.1.0, 2.0, 2.0.1    |
 +-----------------------+-----------------------------+
 | `OGC WMC`_            | 1.1.0                       |
 +-----------------------+-----------------------------+
@@ -153,8 +153,12 @@ Find out what a WMS has to offer. Service metadata:
   >>> wms = WebMapService('http://wms.jpl.nasa.gov/wms.cgi', version='1.1.1')
   >>> wms.identification.type
   'OGC:WMS'
+  >>> wms.identification.version
+  '1.1.1'
   >>> wms.identification.title
   'JPL Global Imagery Service'
+  >>> wms.identification.abstract
+  'WMS Server maintained by JPL, worldwide satellite imagery.'
 
 Available layers:
 
@@ -293,26 +297,24 @@ services)
 
     >>> response = wfs20.getfeature(storedQueryID='urn:ogc:def:query:OGC-WFS::GetFeatureById', storedQueryParams={'ID':'gmd_ex.1'})
 
-WFS 3.0
--------
+OGC API - Features 1.0
+----------------------
 
-WFS 3.0 is a clean break from the traditional OGC service architecture
+The OGC API - Features standard is a clean break from the traditional OGC service architecture
 (RESTful, JSON, OpenAPI) and as such OWSLib the code follows the same pattern.
 
 .. code-block:: python
 
-  >>> from owslib.wfs import WebFeatureService
-  >>> w = WebFeatureService('https://geo.kralidis.ca/pygeoapi', version='3.0')
+  >>> from owslib.ogcapi import Features
+  >>> w = Features('https://demo.pygeoapi.io/cite')
   >>> w.url
-  'http://geo.kralidis.ca/pygeoapi/'
-  >>> w.version
-  '3.0'
+  'https://demo.pygeoapi.io/cite'
   >>> conformance = w.conformance()
-  {u'conformsTo': [u'http://www.opengis.net/spec/wfs-1/3.0/req/core', u'http://www.opengis.net/spec/wfs-1/3.0/req/oas30', u'http://www.opengis.net/spec/wfs-1/3.0/req/html', u'http://www.opengis.net/spec/wfs-1/3.0/req/geojson']}
-  >>> api = w.api() # OpenAPI definition
+  {u'conformsTo': [u'http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/core', u'http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/oas30', u'http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/html', u'http://www.opengis.net/spec/ogcapi-features-1/1.0/conf/geojson']}
+  >>> api = w.api()  # OpenAPI definition
   >>> collections = w.collections()
   >>> len(collections)
-  3
+  13
   >>> lakes = w.collection('lakes')
   >>> lakes['name']
   'lakes'
@@ -326,6 +328,48 @@ WFS 3.0 is a clean break from the traditional OGC service architecture
 
 WCS
 ---
+
+.. code-block:: python
+
+  >>> # Import OWSLib in Python once installed
+  ... from owslib.wcs import WebCoverageService
+
+  >>> # Create coverage object
+  ... my_wcs = WebCoverageService('http://ows.rasdaman.org/rasdaman/ows',
+  ...                             version='2.0.1')
+
+  >>> # Get list of coverages
+  ... print my_wcs.contents.keys()
+  ['RadianceColor', 'test_irr_cube_2', 'test_mean_summer_airtemp', 'test_double_1d', 'INSPIRE_EL', 'AverageChlorophyllScaled', 'INSPIRE_OI_RGB', 'Temperature4D', 'INSPIRE_OI_IR', 'visible_human', 'INSPIRE_WS_LC', 'meris_lai', 'climate_earth', 'mean_summer_airtemp', 'multiband', 'ls8_coastal_aerosol', 'NN3_3', 'NN3_2', 'NN3_1', 'NN3_4', 'AvgTemperatureColorScaled', 'AverageChloroColorScaled', 'lena', 'Germany_DTM', 'climate_cloud', 'FiLCCoverageBit', 'AverageChloroColor', 'LandsatMultiBand', 'RadianceColorScaled', 'AvgLandTemp', 'NIR', 'BlueMarbleCov']
+
+  >>> # Get geo-bounding boxes and native CRS
+  ... my_wcs.contents['AverageChlorophyllScaled'].boundingboxes
+  [{'nativeSrs': 'http://ows.rasdaman.org/def/crs-compound?1=http://ows.rasdaman.org/def/crs/EPSG/0/4326&2=http://ows.rasdaman.org/def/crs/OGC/0/UnixTime', 'bbox': (-90.0, -180.0, 90.0, 180.0)}]
+
+  >>> # Get axis labels
+  ... my_wcs.contents['AverageChlorophyllScaled'].grid.axislabels
+  ['Lat', 'Long', 'unix']
+
+  >>> # Get dimension
+  ... my_wcs.contents['AverageChlorophyllScaled'].grid.dimension
+  3
+
+  >>> # Get grid lower and upper bounds
+  ... my_wcs.contents['AverageChlorophyllScaled'].grid.lowlimits
+  ['0', '0', '0']
+
+  >>> my_wcs.contents['AverageChlorophyllScaled'].grid.highlimits
+  ['119', '239', '5']
+
+  >>> # Get offset vectors for geo axes
+  ... my_wcs.contents['AverageChlorophyllScaled'].grid.offsetvectors
+  [['-1.5', '0', '0'], ['0', '1.5', '0'], ['0', '0', '1']]
+  
+  >>> # For coverage with time axis get the date time values
+  ... my_wcs.contents['AverageChlorophyllScaled'].timepositions
+  [datetime.datetime(2015, 1, 1, 0, 0), datetime.datetime(2015, 2, 1, 0, 0), datetime.datetime(2015, 3, 1, 0, 0), datetime.datetime(2015, 4, 1, 0, 0), datetime.datetime(2015, 5, 1, 0, 0), datetime.datetime(2015, 7, 1, 0, 0)]
+
+
 
 CSW
 ---

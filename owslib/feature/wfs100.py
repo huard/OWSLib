@@ -8,6 +8,7 @@
 
 from owslib import util
 
+from io import BytesIO
 from urllib.parse import urlencode
 from owslib.util import (
     testXMLValue,
@@ -27,7 +28,6 @@ from owslib.feature.schema import get_schema
 from owslib.feature.common import (
     WFSCapabilitiesReader,
     AbstractContentMetadata,
-    makeStringIO,
 )
 
 import pyproj
@@ -308,16 +308,16 @@ class WebFeatureService_1_0_0(object):
                 tree = etree.fromstring(data)
             except BaseException:
                 # Not XML
-                return makeStringIO(data)
+                return BytesIO(data)
             else:
                 if tree.tag == "{%s}ServiceExceptionReport" % OGC_NAMESPACE:
                     se = tree.find(nspath("ServiceException", OGC_NAMESPACE))
                     raise ServiceException(str(se.text).strip())
                 else:
-                    return makeStringIO(data)
+                    return BytesIO(data)
         else:
             if have_read:
-                return makeStringIO(data)
+                return BytesIO(data)
             return u
 
     def getOperationByName(self, name):
@@ -395,14 +395,16 @@ class ContentMetadata(AbstractContentMetadata):
         self.boundingBoxWGS84 = None
 
         if b is not None and srs is not None:
-            wgs84 = pyproj.Proj(init="epsg:4326")
+            wgs84 = pyproj.Proj("epsg:4326")
             try:
-                src_srs = pyproj.Proj(init=srs.text)
+                src_srs = pyproj.Proj(srs.text)
                 mincorner = pyproj.transform(
-                    src_srs, wgs84, b.attrib["minx"], b.attrib["miny"]
+                    src_srs, wgs84, b.attrib["minx"], b.attrib["miny"],
+                    always_xy=True,
                 )
                 maxcorner = pyproj.transform(
-                    src_srs, wgs84, b.attrib["maxx"], b.attrib["maxy"]
+                    src_srs, wgs84, b.attrib["maxx"], b.attrib["maxy"],
+                    always_xy=True,
                 )
 
                 self.boundingBoxWGS84 = (

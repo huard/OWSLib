@@ -18,11 +18,11 @@ from owslib.feature import WebFeatureService_
 from owslib.feature.common import (
     WFSCapabilitiesReader,
     AbstractContentMetadata,
-    makeStringIO,
 )
 from owslib.namespaces import Namespaces
 
 # other imports
+from io import BytesIO
 from urllib.parse import urlencode
 
 import logging
@@ -115,8 +115,7 @@ class WebFeatureService_2_0_0(WebFeatureService_):
         else:
             auth = Authentication()
         super(WebFeatureService_2_0_0, self).__init__(auth)
-        if log.isEnabledFor(logging.DEBUG):
-            log.debug("building WFS %s" % url)
+        log.debug("building WFS %s" % url)
         self.url = url
         self.version = version
         self.timeout = timeout
@@ -288,8 +287,7 @@ class WebFeatureService_2_0_0(WebFeatureService_):
                 startindex,
                 sortby,
             )
-            if log.isEnabledFor(logging.DEBUG):
-                log.debug("GetFeature WFS GET url %s" % url)
+            log.debug("GetFeature WFS GET url %s" % url)
         else:
             (url, data) = self.getPOSTGetFeatureRequest()
 
@@ -315,16 +313,16 @@ class WebFeatureService_2_0_0(WebFeatureService_):
                 tree = etree.fromstring(data)
             except BaseException:
                 # Not XML
-                return makeStringIO(data)
+                return BytesIO(data)
             else:
                 if tree.tag == "{%s}ServiceExceptionReport" % OGC_NAMESPACE:
                     se = tree.find(nspath("ServiceException", OGC_NAMESPACE))
                     raise ServiceException(str(se.text).strip())
                 else:
-                    return makeStringIO(data)
+                    return BytesIO(data)
         else:
             if have_read:
-                return makeStringIO(data)
+                return BytesIO(data)
             return u
 
     def getpropertyvalue(
