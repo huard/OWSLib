@@ -539,8 +539,8 @@ class ContentMetadata(AbstractContentMetadata):
                 raise ValueError('%s missing name and title' % (s,))
             if name is None or title is None:
                 warnings.warn('%s missing name or title' % (s,))
-            title_ = title.text if not title is None else name.text
-            name_ = name.text if not name is None else title.text
+            title_ = title.text if title is not None else name.text
+            name_ = name.text if name is not None else title.text
             style = {'title': title_}
             # legend url
             legend = s.find('LegendURL/OnlineResource')
@@ -583,9 +583,11 @@ class ContentMetadata(AbstractContentMetadata):
         self.dataUrls = []
         for m in elem.findall('DataURL'):
             dataUrl = {
-                'format': m.find('Format').text.strip(),
+                'format': testXMLValue(m.find('Format')),
                 'url': m.find('OnlineResource').attrib['{http://www.w3.org/1999/xlink}href']
             }
+            if dataUrl['format']:
+                dataUrl['format'] = dataUrl['format'].strip()
             self.dataUrls.append(dataUrl)
 
         self.layers = []

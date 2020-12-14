@@ -123,7 +123,7 @@ class API(object):
         path = 'collections'
         return self._request(path)
 
-    def collection(self, collection_id) -> dict:
+    def collection(self, collection_id: str) -> dict:
         """
         implements /collections/{collectionId}
 
@@ -136,7 +136,7 @@ class API(object):
         path = 'collections/{}'.format(collection_id)
         return self._request(path)
 
-    def collection_queryables(self, collection_id) -> dict:
+    def collection_queryables(self, collection_id: str) -> dict:
         """
         implements /collections/{collectionId}/queryables
 
@@ -149,7 +149,7 @@ class API(object):
         path = 'collections/{}/queryables'.format(collection_id)
         return self._request(path)
 
-    def _build_url(self, path=None) -> str:
+    def _build_url(self, path: str = None) -> str:
         """
         helper function to build an OGC API URL
 
@@ -171,7 +171,8 @@ class API(object):
 
         return url
 
-    def _request(self, path=None, as_dict=True, kwargs={}) -> dict:
+    def _request(self, path: str = None, as_dict: bool = True,
+                 kwargs: dict = {}) -> dict:
         """
         helper function for request/response patterns against OGC API endpoints
 
@@ -188,9 +189,13 @@ class API(object):
         url = self._build_url(path)
 
         LOGGER.debug('Request: {}'.format(url))
+        LOGGER.debug('Params: {}'.format(kwargs))
 
         response = http_get(url, headers=self.headers, auth=self.auth,
                             params=kwargs)
+
+        LOGGER.debug('URL: {}'.format(response.url))
+
         if response.status_code != requests.codes.ok:
             raise RuntimeError(response.text)
 

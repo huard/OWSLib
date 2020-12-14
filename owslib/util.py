@@ -292,7 +292,7 @@ def add_namespaces(root, ns_keys):
         # We can't re-add an existing namespaces.  Get a list of current
         # namespaces in use
         existing_namespaces = set()
-        for elem in root.getiterator():
+        for elem in root.iter():
             if elem.tag[0] == "{":
                 uri, tag = elem.tag[1:].split("}")
                 existing_namespaces.add(namespaces.get_namespace_from_url(uri))
@@ -590,6 +590,10 @@ def dump(obj, prefix=''):
 
 def getTypedValue(data_type, value):
     '''Utility function to cast a string value to the appropriate XSD type. '''
+
+    # If the default value is empty
+    if value is None:
+        return
 
     if data_type == 'boolean':
         return True if value.lower() == 'true' else False
